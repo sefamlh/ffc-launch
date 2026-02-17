@@ -46,7 +46,7 @@ class ApiService {
   }
 
   async getBalances() {
-    return this.request("/wallet/balances");
+    return this.request("/wallet/balance");
   }
 
   // Games
