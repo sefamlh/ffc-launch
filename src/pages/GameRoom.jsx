@@ -11,18 +11,23 @@ import { useAuth } from "../hooks/useAuth";
 import { formatETH } from "../lib/utils";
 
 const GAME_STATES = {
+  LOADING: "loading",      // Loading game
   WAITING: "waiting",      // Waiting for opponent
   READY_CHECK: "ready",    // Both players, ready check
   COUNTDOWN: "countdown",  // 3-2-1 countdown
   PLAYING: "playing",      // Game in progress
   FINISHED: "finished",    // Game ended
+  ERROR: "error",          // Error state
 };
 
-export default function GameRoom({ gameId, onLeave }) {
-  const { user } = useAuth();
+const APP_URL = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+export default function GameRoom({ gameId }) {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { on, emit, isConnected } = useSocket();
   
-  const [gameState, setGameState] = useState(GAME_STATES.WAITING);
+  const [gameState, setGameState] = useState(GAME_STATES.LOADING);
   const [game, setGame] = useState(null);
   const [opponent, setOpponent] = useState(null);
   const [isReady, setIsReady] = useState(false);
@@ -30,8 +35,25 @@ export default function GameRoom({ gameId, onLeave }) {
   const [countdown, setCountdown] = useState(null);
   const [winner, setWinner] = useState(null);
   const [scores, setScores] = useState({ player1: 0, player2: 0 });
+  const [errorMessage, setErrorMessage] = useState("");
   
   const containerRef = useRef(null);
+
+  // Redirect to main site
+  const redirectToMain = (path = "") => {
+    window.location.href = `${APP_URL}${path}`;
+  };
+
+  // Check auth and load game
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!isAuthenticated) {
+      // Not logged in, redirect to main site with return URL
+      window.location.href = `${APP_URL}?redirect=${encodeURIComponent(window.location.href)}`;
+      return;
+    }
+  }, [authLoading, isAuthenticated]);
 
   // Join game room on mount
   useEffect(() => {
@@ -103,7 +125,7 @@ export default function GameRoom({ gameId, onLeave }) {
   const fetchGameDetails = async () => {
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/games/${gameId}`,
+        `${API_URL}/api/games/${gameId}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("ffc_token")}`,
@@ -111,14 +133,47 @@ export default function GameRoom({ gameId, onLeave }) {
         }
       );
       const data = await response.json();
-      if (data.game) {
-        setGame(data.game);
-        if (data.game.status === "matched" || data.game.status === "playing") {
-          setGameState(GAME_STATES.READY_CHECK);
+      
+      if (!response.ok || !data.game) {
+        setErrorMessage("Game not found");
+        setGameState(GAME_STATES.ERROR);
+        return;
+      }
+
+      const gameData = data.game;
+      
+      // Check if user is part of this game
+      if (gameData.player1_id !== user?.id && gameData.player2_id !== user?.id) {
+        setErrorMessage("You are not a participant in this game");
+        setGameState(GAME_STATES.ERROR);
+        return;
+      }
+
+      // Check if game is in valid state
+      if (gameData.status === "cancelled" || gameData.status === "finished") {
+        setErrorMessage(`Game ${gameData.status}`);
+        setGameState(GAME_STATES.FINISHED);
+        setGame(gameData);
+        if (gameData.winner_id) {
+          setWinner(gameData.winner_id);
         }
+        return;
+      }
+
+      setGame(gameData);
+      
+      // Set game state based on status
+      if (gameData.status === "waiting") {
+        setGameState(GAME_STATES.WAITING);
+      } else if (gameData.status === "matched") {
+        setGameState(GAME_STATES.READY_CHECK);
+      } else if (gameData.status === "playing") {
+        setGameState(GAME_STATES.PLAYING);
       }
     } catch (err) {
       console.error("Failed to fetch game:", err);
+      setErrorMessage("Failed to load game");
+      setGameState(GAME_STATES.ERROR);
     }
   };
 
@@ -157,6 +212,34 @@ export default function GameRoom({ gameId, onLeave }) {
 
   const isPlayer1 = game?.player1_id === user?.id;
 
+  // Loading state
+  if (gameState === GAME_STATES.LOADING || authLoading) {
+    return (
+      <div className="min-h-screen animated-gradient flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 text-primary animate-spin mx-auto mb-4" />
+          <p className="text-xl text-muted-foreground">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (gameState === GAME_STATES.ERROR) {
+    return (
+      <div className="min-h-screen animated-gradient flex items-center justify-center">
+        <div className="text-center">
+          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">{errorMessage || "Error"}</h2>
+          <p className="text-muted-foreground mb-6">Unable to load this game</p>
+          <Button variant="gradient" onClick={() => redirectToMain()}>
+            Back to Main Site
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen animated-gradient relative overflow-hidden">
       {/* Background effects */}
@@ -185,9 +268,9 @@ export default function GameRoom({ gameId, onLeave }) {
       <div ref={containerRef} className="relative z-10 container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 animate-in">
-          <Button variant="ghost" onClick={onLeave}>
+          <Button variant="ghost" onClick={() => redirectToMain()}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Leave Room
+            Back to Site
           </Button>
           
           <div className="flex items-center gap-2">
@@ -374,10 +457,10 @@ export default function GameRoom({ gameId, onLeave }) {
                         : "Better luck next time!"}
                     </p>
                     <div className="flex gap-4">
-                      <Button variant="outline" onClick={onLeave}>
-                        Back to Lobby
+                      <Button variant="outline" onClick={() => redirectToMain()}>
+                        Back to Site
                       </Button>
-                      <Button variant="gradient">
+                      <Button variant="gradient" onClick={() => redirectToMain("/profile?tab=mygames")}>
                         Play Again
                       </Button>
                     </div>
