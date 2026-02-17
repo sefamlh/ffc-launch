@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.fightforcrypto.com";
 
 class ApiService {
   constructor() {
@@ -16,7 +16,7 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${this.baseUrl}/api${endpoint}`;
     const headers = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -38,22 +38,6 @@ class ApiService {
     }
 
     return data;
-  }
-
-  // Auth
-  async login(walletAddress) {
-    const data = await this.request("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ walletAddress }),
-    });
-    if (data.token) {
-      this.setToken(data.token);
-    }
-    return data;
-  }
-
-  logout() {
-    this.setToken(null);
   }
 
   // User
@@ -102,8 +86,8 @@ class ApiService {
     return this.request(`/games/${gameId}`);
   }
 
-  async getLeaderboard(limit = 50) {
-    return this.request(`/games/leaderboard?limit=${limit}`);
+  logout() {
+    this.setToken(null);
   }
 }
 

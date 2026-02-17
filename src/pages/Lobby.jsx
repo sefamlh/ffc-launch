@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import anime from "animejs/lib/anime.es.js";
-import { Gamepad2, Plus, Users, Coins, Zap, RefreshCw, LogOut, User, Loader2 } from "lucide-react";
+import { Gamepad2, Users, Coins, Zap, RefreshCw, LogOut, User, Loader2 } from "lucide-react";
 import { Button, Card, CardContent, Badge, Spinner } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { useSocket } from "../context/SocketContext";
+import api from "../services/api";
 import { formatETH } from "../lib/utils";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://api.fightforcrypto.com";
 const APP_URL = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
 
 export default function Lobby() {
@@ -40,10 +40,7 @@ export default function Lobby() {
 
   const checkActiveGame = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/games/my-active`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("ffc_token")}` }
-      });
-      const data = await response.json();
+      const data = await api.getMyActiveGame();
       
       if (data.hasActiveGame && data.game) {
         // User has active game, redirect to it
@@ -108,11 +105,7 @@ export default function Lobby() {
   const fetchLobby = async () => {
     setIsLoading(true);
     try {
-      const params = filter === "all" ? "" : `?gameType=${filter}`;
-      const response = await fetch(`${API_URL}/api/games/lobby${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("ffc_token")}` }
-      });
-      const data = await response.json();
+      const data = await api.getLobby(filter === "all" ? null : filter);
       // Filter out user's own games
       const otherGames = (data.games || []).filter(g => g.creatorId !== user?.id);
       setGames(otherGames);
@@ -160,19 +153,7 @@ export default function Lobby() {
   const handleJoinGame = async (gameId) => {
     setJoiningGameId(gameId);
     try {
-      const response = await fetch(`${API_URL}/api/games/${gameId}/join`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem("ffc_token")}` 
-        }
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to join');
-      }
-      
+      const data = await api.joinGame(gameId);
       // Redirect to game
       navigate(`/game/${data.game.id}`);
     } catch (err) {

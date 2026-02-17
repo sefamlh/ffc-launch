@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 
-const APP_URL = import.meta.env.VITE_APP_URL || "https://app.fightforcrypto.com";
+const APP_URL = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
 
 export function useAuth() {
   const [user, setUser] = useState(null);
