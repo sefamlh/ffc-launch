@@ -56,8 +56,8 @@ export default function CreateGameModal({ open, onOpenChange, onCreated, balance
     setError("");
 
     try {
-      await api.createGame(selectedGame, parseFloat(betAmount), currency);
-      onCreated();
+      const result = await api.createGame(selectedGame, parseFloat(betAmount), currency);
+      onCreated(result.game?.id);
     } catch (err) {
       setError(err.message);
     } finally {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import anime from "animejs/lib/anime.es.js";
 import { Gamepad2, Plus, Users, Coins, Zap, RefreshCw, Wallet } from "lucide-react";
@@ -11,6 +12,7 @@ import CreateGameModal from "../components/CreateGameModal";
 import GameCard from "../components/GameCard";
 
 export default function Lobby() {
+  const navigate = useNavigate();
   const { user, balances, isAuthenticated, account, login, logout, isLoading: authLoading } = useAuth();
   const { isConnected: socketConnected, on, emit } = useSocket();
   
@@ -127,8 +129,7 @@ export default function Lobby() {
 
     try {
       await api.joinGame(gameId);
-      fetchLobby();
-      // TODO: Navigate to game room
+      navigate(`/game/${gameId}`);
     } catch (err) {
       alert(err.message);
     }
@@ -338,9 +339,13 @@ export default function Lobby() {
       <CreateGameModal
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
-        onCreated={() => {
+        onCreated={(gameId) => {
           setShowCreateModal(false);
-          fetchLobby();
+          if (gameId) {
+            navigate(`/game/${gameId}`);
+          } else {
+            fetchLobby();
+          }
         }}
         balances={balances}
       />
