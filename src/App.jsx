@@ -1,22 +1,11 @@
-import { BrowserRouter, Routes, Route, useNavigate, useParams, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import { SocketProvider } from "./context/SocketContext";
+import Lobby from "./pages/Lobby";
 import GameRoom from "./pages/GameRoom";
 
 function GameRoomWrapper() {
   const { gameId } = useParams();
-
-  if (!gameId) {
-    // No game ID, redirect to main site
-    window.location.href = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
-    return null;
-  }
-
   return <GameRoom gameId={gameId} />;
-}
-
-function RedirectToMain() {
-  window.location.href = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
-  return null;
 }
 
 function App() {
@@ -24,8 +13,8 @@ function App() {
     <BrowserRouter>
       <SocketProvider>
         <Routes>
+          <Route path="/" element={<Lobby />} />
           <Route path="/game/:gameId" element={<GameRoomWrapper />} />
-          <Route path="*" element={<RedirectToMain />} />
         </Routes>
       </SocketProvider>
     </BrowserRouter>
