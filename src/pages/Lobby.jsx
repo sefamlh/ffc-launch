@@ -163,7 +163,7 @@ export default function Lobby() {
             <div className="p-2 rounded-xl bg-primary/20 neon-border">
               <Zap className="w-6 h-6 text-primary" />
             </div>
-            <span className="text-xl font-bold gradient-text">FFC Launch</span>
+            <span className="text-xl font-bold gradient-text">FFC Arena</span>
           </motion.div>
 
           <div className="flex items-center gap-4">
@@ -215,7 +215,7 @@ export default function Lobby() {
         {/* Hero */}
         <div className="text-center mb-16">
           <h1 ref={titleRef} className="text-5xl md:text-7xl font-bold mb-6">
-            {"GAME LOBBY".split("").map((letter, i) => (
+            {"ARENA".split("").map((letter, i) => (
               <span key={i} className="letter inline-block" style={{ opacity: 0 }}>
                 {letter === " " ? "\u00A0" : letter}
               </span>
@@ -224,10 +224,10 @@ export default function Lobby() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5 }}
+            transition={{ delay: 1 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Join a game or create your own arena. Bet, battle, and win crypto!
+            Battle for crypto. Create a room or join the fight!
           </motion.p>
         </div>
 
