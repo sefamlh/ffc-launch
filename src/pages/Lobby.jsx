@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import anime from "animejs/lib/anime.es.js";
-import { Gamepad2, Users, Coins, Zap, RefreshCw, LogOut, User, Loader2 } from "lucide-react";
+import { Gamepad2, Users, Coins, Zap, RefreshCw, LogOut, User, Loader2, AlertTriangle, X } from "lucide-react";
 import { Button, Card, CardContent, Badge, Spinner } from "../components/ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { useSocket } from "../context/SocketContext";
 import api from "../services/api";
@@ -13,32 +14,28 @@ const APP_URL = import.meta.env.VITE_APP_URL || "https://fightforcrypto.com";
 
 export default function Lobby() {
   const navigate = useNavigate();
-  const { user, balances, isAuthenticated, isLoading: authLoading, logout, refreshBalances } = useAuth();
+  const { user, balances, isAuthenticated, isLoading: authLoading, refreshBalances } = useAuth();
   const { isConnected: socketConnected, on, emit } = useSocket();
   
   const [games, setGames] = useState([]);
+  const [myGame, setMyGame] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
   const [joiningGameId, setJoiningGameId] = useState(null);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   
   const titleRef = useRef(null);
   const particlesRef = useRef(null);
 
   // Check for active game and redirect
   useEffect(() => {
-    console.log("[Lobby] authLoading:", authLoading, "isAuthenticated:", isAuthenticated);
-    
     if (authLoading) return;
     
     if (!isAuthenticated) {
-      console.log("[Lobby] Not authenticated, redirecting to:", APP_URL);
-      // Redirect to main site for login
       window.location.href = `${APP_URL}?redirect=${encodeURIComponent(window.location.href)}`;
       return;
     }
 
-    // Check if user has active game
-    console.log("[Lobby] Authenticated, checking active game...");
     checkActiveGame();
   }, [authLoading, isAuthenticated]);
 
@@ -47,14 +44,16 @@ export default function Lobby() {
       const data = await api.getMyActiveGame();
       
       if (data.hasActiveGame && data.game) {
-        // User has active game, redirect to it
+        // User has active game
         if (data.game.status === 'matched' || data.game.status === 'playing') {
+          // Game started, go to game room
           navigate(`/game/${data.game.id}`);
           return;
         }
+        // Waiting for opponent - show in lobby
+        setMyGame(data.game);
       }
       
-      // No active game or waiting, show lobby
       fetchLobby();
     } catch (err) {
       console.error("Failed to check active game:", err);
@@ -62,7 +61,6 @@ export default function Lobby() {
     }
   };
 
-  // Animate on mount
   useEffect(() => {
     if (titleRef.current) {
       anime({
@@ -109,7 +107,7 @@ export default function Lobby() {
   const fetchLobby = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getLobby(filter === "all" ? null : filter);
+      const data = await api.getLobby();
       // Filter out user's own games
       const otherGames = (data.games || []).filter(g => g.creatorId !== user?.id);
       setGames(otherGames);
@@ -122,9 +120,10 @@ export default function Lobby() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchLobby();
+      const interval = setInterval(fetchLobby, 10000); // Refresh every 10s
+      return () => clearInterval(interval);
     }
-  }, [filter, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Socket listeners
   useEffect(() => {
@@ -140,6 +139,10 @@ export default function Lobby() {
 
     const unsubJoined = on("game_joined", (data) => {
       setGames(prev => prev.filter(g => g.id !== data.gameId));
+      // If someone joined my game, redirect to game room
+      if (myGame && data.gameId === myGame.id) {
+        navigate(`/game/${myGame.id}`);
+      }
     });
 
     const unsubCancelled = on("game_cancelled", (data) => {
@@ -152,13 +155,12 @@ export default function Lobby() {
       unsubJoined();
       unsubCancelled();
     };
-  }, [on, emit, socketConnected, user?.id]);
+  }, [on, emit, socketConnected, user?.id, myGame]);
 
   const handleJoinGame = async (gameId) => {
     setJoiningGameId(gameId);
     try {
       const data = await api.joinGame(gameId);
-      // Redirect to game
       navigate(`/game/${data.game.id}`);
     } catch (err) {
       alert(err.message);
@@ -167,7 +169,23 @@ export default function Lobby() {
     }
   };
 
-  // Loading state
+  const handleLeaveGame = async () => {
+    if (!myGame) return;
+    
+    setIsLeaving(true);
+    try {
+      await api.cancelGame(myGame.id);
+      setMyGame(null);
+      refreshBalances();
+      window.location.href = APP_URL;
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsLeaving(false);
+      setShowLeaveModal(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen animated-gradient flex items-center justify-center">
@@ -180,6 +198,34 @@ export default function Lobby() {
     <div className="min-h-screen animated-gradient relative overflow-hidden">
       <div ref={particlesRef} className="particles" />
       <div className="fixed inset-0 cyber-grid opacity-30 pointer-events-none" />
+
+      {/* Leave Game Modal */}
+      <Dialog open={showLeaveModal} onOpenChange={setShowLeaveModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-5 h-5" />
+              Leave Game?
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave? Your bet of {formatETH(myGame?.betAmount)} {myGame?.currency} will be refunded and the game will be cancelled.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setShowLeaveModal(false)}>
+              Stay
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleLeaveGame}
+              disabled={isLeaving}
+            >
+              {isLeaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Leave & Refund
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Header */}
       <header className="relative z-10 border-b border-border/50 glass">
@@ -211,7 +257,12 @@ export default function Lobby() {
                   <User className="w-4 h-4 text-primary" />
                   <span className="font-medium">{user?.username || "Player"}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => { logout(); window.location.href = APP_URL; }}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => myGame ? setShowLeaveModal(true) : (window.location.href = APP_URL)}
+                  title={myGame ? "Leave game" : "Back to site"}
+                >
                   <LogOut className="w-4 h-4" />
                 </Button>
               </>
@@ -232,44 +283,75 @@ export default function Lobby() {
             ))}
           </h1>
           <p className="text-xl text-muted-foreground">
-            Join a battle or wait for challengers
+            {myGame ? "Waiting for an opponent..." : "Join a battle or wait for challengers"}
           </p>
         </div>
 
-        {/* Filter & Refresh */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex gap-2">
-            {["all", "pong", "rps", "snake"].map((type) => (
-              <Button
-                key={type}
-                variant={filter === type ? "default" : "outline"}
-                size="sm"
-                onClick={() => setFilter(type)}
-              >
-                {type === "all" ? "All" : type.toUpperCase()}
-              </Button>
-            ))}
-          </div>
+        {/* My Game (Waiting) */}
+        {myGame && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <Card glow className="border-primary/50 bg-primary/5">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl">
+                      {myGame.gameType === "pong" ? "🏓" : myGame.gameType === "rps" ? "✊" : "🐍"}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">Your Game</h3>
+                      <p className="text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Waiting for opponent...
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Your Bet</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {formatETH(myGame.betAmount)} {myGame.currency}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowLeaveModal(true)}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Refresh */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold">
+            {myGame ? "Other Players Looking for Match" : "Open Games"}
+          </h2>
           <Button variant="ghost" size="icon" onClick={fetchLobby}>
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
         {/* Games Grid */}
-        {isLoading ? (
+        {isLoading && !games.length ? (
           <div className="flex justify-center py-20">
             <Spinner size="lg" />
           </div>
         ) : games.length === 0 ? (
-          <div className="text-center py-20">
-            <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-            <h3 className="text-xl font-semibold mb-2">No open games</h3>
-            <p className="text-muted-foreground mb-6">
-              Create a game from the main site or wait for others
+          <div className="text-center py-16 border border-dashed border-border/50 rounded-xl">
+            <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold mb-2">No other players waiting</h3>
+            <p className="text-muted-foreground">
+              {myGame ? "Sit tight, someone will join soon!" : "Check back later or create a game from the main site"}
             </p>
-            <Button variant="gradient" onClick={() => window.location.href = `${APP_URL}/arena`}>
-              Create Game
-            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -320,14 +402,14 @@ export default function Lobby() {
                         variant="gradient"
                         className="w-full"
                         onClick={() => handleJoinGame(game.id)}
-                        disabled={joiningGameId === game.id}
+                        disabled={joiningGameId === game.id || !!myGame}
                       >
                         {joiningGameId === game.id ? (
                           <Loader2 className="w-4 h-4 animate-spin mr-2" />
                         ) : (
                           <Gamepad2 className="w-4 h-4 mr-2" />
                         )}
-                        Join Battle
+                        {myGame ? "Cancel your game first" : "Join Battle"}
                       </Button>
                     </CardContent>
                   </Card>
