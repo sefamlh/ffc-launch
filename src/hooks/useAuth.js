@@ -16,20 +16,26 @@ export function useAuth() {
 
   const checkAuth = async () => {
     const token = localStorage.getItem("ffc_token");
+    console.log("[Auth] Token exists:", !!token);
+    
     if (!token) {
       setIsLoading(false);
       return;
     }
 
     try {
+      console.log("[Auth] Checking profile...");
       const data = await api.getProfile();
+      console.log("[Auth] Profile data:", data);
       setUser(data.user);
       setIsAuthenticated(true);
       await fetchBalances();
     } catch (err) {
-      console.error("Auth check failed:", err);
-      // Token invalid, clear it
-      localStorage.removeItem("ffc_token");
+      console.error("[Auth] Check failed:", err);
+      // Don't clear token on network errors, only on 401
+      if (err.message?.includes("401") || err.message?.includes("Invalid")) {
+        localStorage.removeItem("ffc_token");
+      }
       setUser(null);
       setIsAuthenticated(false);
     } finally {

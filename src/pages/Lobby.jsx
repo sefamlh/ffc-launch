@@ -26,15 +26,19 @@ export default function Lobby() {
 
   // Check for active game and redirect
   useEffect(() => {
+    console.log("[Lobby] authLoading:", authLoading, "isAuthenticated:", isAuthenticated);
+    
     if (authLoading) return;
     
     if (!isAuthenticated) {
+      console.log("[Lobby] Not authenticated, redirecting to:", APP_URL);
       // Redirect to main site for login
       window.location.href = `${APP_URL}?redirect=${encodeURIComponent(window.location.href)}`;
       return;
     }
 
     // Check if user has active game
+    console.log("[Lobby] Authenticated, checking active game...");
     checkActiveGame();
   }, [authLoading, isAuthenticated]);
 
