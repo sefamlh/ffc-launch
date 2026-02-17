@@ -11,6 +11,8 @@ import { shortenAddress, formatETH } from "../lib/utils";
 import CreateGameModal from "../components/CreateGameModal";
 import GameCard from "../components/GameCard";
 
+const APP_URL = import.meta.env.VITE_APP_URL || "https://app.fightforcrypto.com";
+
 export default function Lobby() {
   const navigate = useNavigate();
   const { user, balances, isAuthenticated, login, logout, isLoading: authLoading } = useAuth();
@@ -24,6 +26,9 @@ export default function Lobby() {
   
   const titleRef = useRef(null);
   const particlesRef = useRef(null);
+
+  // Show auth overlay if not authenticated and not loading
+  const showAuthOverlay = !authLoading && !isAuthenticated;
 
   // Animate title on mount
   useEffect(() => {
@@ -146,6 +151,55 @@ export default function Lobby() {
 
   return (
     <div className="min-h-screen animated-gradient relative overflow-hidden">
+      {/* Auth Overlay - Show when not logged in */}
+      <AnimatePresence>
+        {showAuthOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backdropFilter: "blur(20px)", background: "rgba(0,0,0,0.7)" }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="text-center px-8 max-w-lg"
+            >
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-7xl mb-8"
+              >
+                ⚔️
+              </motion.div>
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-4">
+                Enter the Arena
+              </h1>
+              <p className="text-xl text-gray-300 mb-8">
+                Connect your wallet to battle for crypto. Win big or go home.
+              </p>
+              <Button
+                variant="gradient"
+                size="xl"
+                onClick={() => window.location.href = `${APP_URL}?redirect=${encodeURIComponent(window.location.href)}`}
+                className="text-lg px-10"
+              >
+                <LogIn className="w-5 h-5 mr-2" />
+                Login to Fight
+              </Button>
+              <p className="text-sm text-gray-500 mt-6">
+                Don't have an account?{" "}
+                <a href={APP_URL} className="text-primary hover:underline">
+                  Sign up on the main site
+                </a>
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Particles */}
       <div ref={particlesRef} className="particles" />
 
