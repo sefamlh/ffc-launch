@@ -8,7 +8,7 @@ import {
 import { Button, Card, CardContent, Badge, Spinner } from "../components/ui";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../hooks/useAuth";
-import { shortenAddress, formatETH } from "../lib/utils";
+import { formatETH } from "../lib/utils";
 
 const GAME_STATES = {
   WAITING: "waiting",      // Waiting for opponent
@@ -19,7 +19,7 @@ const GAME_STATES = {
 };
 
 export default function GameRoom({ gameId, onLeave }) {
-  const { user, account } = useAuth();
+  const { user } = useAuth();
   const { on, emit, isConnected } = useSocket();
   
   const [gameState, setGameState] = useState(GAME_STATES.WAITING);

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import anime from "animejs/lib/anime.es.js";
-import { Gamepad2, Plus, Users, Coins, Zap, RefreshCw, Wallet } from "lucide-react";
+import { Gamepad2, Plus, Users, Coins, Zap, RefreshCw, LogIn, LogOut, User } from "lucide-react";
 import { Button, Card, CardContent, Badge, Spinner } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 import { useSocket } from "../context/SocketContext";
@@ -13,7 +13,7 @@ import GameCard from "../components/GameCard";
 
 export default function Lobby() {
   const navigate = useNavigate();
-  const { user, balances, isAuthenticated, account, login, logout, isLoading: authLoading } = useAuth();
+  const { user, balances, isAuthenticated, login, logout, isLoading: authLoading } = useAuth();
   const { isConnected: socketConnected, on, emit } = useSocket();
   
   const [games, setGames] = useState([]);
@@ -189,16 +189,21 @@ export default function Lobby() {
               </motion.div>
             )}
 
-            {/* Wallet button */}
+            {/* Auth button */}
             {isAuthenticated ? (
-              <Button variant="outline" onClick={logout}>
-                <Wallet className="w-4 h-4 mr-2" />
-                {shortenAddress(account)}
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50">
+                  <User className="w-4 h-4 text-primary" />
+                  <span className="font-medium">{user?.username || "Player"}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={logout}>
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </div>
             ) : (
               <Button variant="gradient" onClick={login} disabled={authLoading}>
-                {authLoading ? <Spinner size="sm" /> : <Wallet className="w-4 h-4 mr-2" />}
-                Connect Wallet
+                {authLoading ? <Spinner size="sm" /> : <LogIn className="w-4 h-4 mr-2" />}
+                Login
               </Button>
             )}
           </div>
