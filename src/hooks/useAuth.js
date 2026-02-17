@@ -9,8 +9,19 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check existing token on mount
+  // Check for token in URL (passed from main site) or localStorage
   useEffect(() => {
+    // Check URL for token first
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    
+    if (urlToken) {
+      console.log("[Auth] Token from URL, saving...");
+      localStorage.setItem("ffc_token", urlToken);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
     checkAuth();
   }, []);
 
